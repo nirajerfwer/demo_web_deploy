@@ -4,43 +4,26 @@ phases:
   install:
     runtime-versions:
       nodejs: 10
-    commands:
-
   pre_build:
     commands:
-      - echo "Logging in to Amazon ECR..."
+      - echo Logging in to Amazon ECR...
       - aws --version
-      - pwd && ls -l  # Debugging: Show current dir structure
-      
-      # Modern AWS CLI login (deprecates --no-include-email)
-      - aws ecr get-login-password | docker login --username AWS --password-stdin $REPOSITORY_URI
-      
-      # Set variables
+      - ls -l
+      - pwd
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
       - REPOSITORY_URI=187393211305.dkr.ecr.us-east-1.amazonaws.com/demowebcontainer
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - IMAGE_TAG=${COMMIT_HASH:-latest}  # Fix: Use :- instead of := for default value
-
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
   build:
     commands:
-      # Only login to Docker Hub if you need to pull FROM Docker Hub images
       - echo "$DOCKERHUB_TOKEN" | docker login -u $DOCKERHUB_USERNAME --password-stdin
-      
-      - echo "Build started on $(date)"
-      - echo "Building the Docker image..."
-      
-      # Build with cache and fail fast
-      - docker build --pull -t $REPOSITORY_URI:latest .
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $REPOSITORY_URI:latest .
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
-
   post_build:
     commands:
-      - echo "Build completed on $(date)"
-      - echo "Pushing the Docker images..."
-      
-      # Push both tags
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      
-      # Optional: Cleanup
-      - docker logout  # Log out from Docker Hub
-      - docker logout $REPOSITORY_URI  # Log out from ECR
